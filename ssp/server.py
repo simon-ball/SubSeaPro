@@ -17,8 +17,8 @@ from pathlib import Path
 from celery import Celery
 from datetime import datetime
 
-import server_config as config
-import server_secrets as secrets
+import ssp.server_config as config
+import ssp.server_secrets as secrets
 
 #app = Celery("server_main", broker="pyamqp://user:password@ipaddress//")
 # Configure the queue that keeps track of jobs still to be completed

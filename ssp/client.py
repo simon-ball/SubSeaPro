@@ -26,9 +26,9 @@ from pathlib import Path, PurePosixPath
 import warnings
 warnings.filterwarnings("ignore", category=cryptography.utils.CryptographyDeprecationWarning)
 
-import server_config as config
-import server_secrets as secrets
-import server # The collection of objects that are crucial to the server
+import ssp.server_config as config
+import ssp.server_secrets as secrets
+import ssp.server as server# The collection of objects that are crucial to the server
 # Particularly used for server.job and server.queue
 
 
