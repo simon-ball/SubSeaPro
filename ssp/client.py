@@ -63,27 +63,35 @@ def send_task_to_server(task_directory):
     '''
     start = time.time()
     # Build a list of all the jobs in this task
-    job_list = []
-    for element in os.listdir(task_directory):
-        subdir = Path(task_directory, element)
-        if os.path.isdir(subdir):
-            job_list.append(str(subdir))
-    task_id, _ = _identity(job_list[0])
-    print("%d jobs found in task '%s'" % (len(job_list), task_id))
+    task_id = os.path.split(task_directory)[1]
+    if not task_id:
+        raise ValueError("Your task directory is not a valid value. Please ensure that it points to a known directory and has no trailing slashes")
     
     # Use that list to send jobs to the server
     ssh = _open_ssh(host=secrets.host, user=secrets.user, key=secrets.key)
-    stdin, stdout, stderr = ssh.exec_command('[ -d "%s" ] && echo "exists"' % _sanitise(config.root_job / task_id))
-    task_already_exists = bool(stdout.readline())
-    if task_already_exists:
+    _, stdout_job, _ = ssh.exec_command('[ -d "%s" ] && echo "exists"' % _sanitise(config.root_job / task_id))
+    _, stdout_down, _ = ssh.exec_command('[ -e "%s" ] && echo "exists"' % _sanitise(config.root_download / (task_id+config.complete)))
+    task_in_progress = bool(stdout_job.readline())
+    task_finished = bool(stdout_down.readline())
+    if task_in_progress:
         ssh.close()
-        raise ValueError("Task '%s' already exists in the active jobs queue. Please use a unique name" % task_id)
+        raise ValueError("Task '%s' is already in progress. Please ensure that new jobs use a unique name" % task_id)
+    elif task_finished:
+        ssh.close()
+        raise ValueError("Task '%s' is finished and awaiting download. Either download this taks first, or re-submit with a new name" % task_id)
     else:
+        job_list = []
+        for element in os.listdir(task_directory):
+            subdir = Path(task_directory, element)
+            if os.path.isdir(subdir):
+                job_list.append(str(subdir))
+        print("%d jobs found in task '%s'" % (len(job_list), task_id))
         scp = _open_scp(ssh, progress=True)
         # Make directories if they don't exist
         ssh.exec_command("mkdir -p %s" % _sanitise(config.root_job / task_id))
         ssh.exec_command("mkdir -p %s" % _sanitise(config.root_finished))
         ssh.exec_command("mkdir -p %s" % _sanitise(config.root_failed))
+        ssh.exec_command("mkdir -p %s" % _sanitise(config.root_download))
         print("Compressing task")
         local_cfile, remote_path, cfname = _zip(task_dir)
         print("Transferring task")
@@ -204,16 +212,19 @@ def _read_progress_file(file_name):
     '''Based on a progress file downloaded from the server, get the current
     progress as a % and the expected completion time'''
     task_id = os.path.split(file_name)[1][:-1*len(config.progress)]
-    text = np.genfromtxt(file_name, dtype=str, delimiter="\t")
-    t = text[:,2].astype(float)
-    progress = text[:,1].astype(float)
-    current_progress = progress[-1]
-    duration = np.sum(t)
-    predicted_duration = duration / current_progress
-    remaining = predicted_duration - duration
-    predicted_endpoint = time.time() + remaining
-    predicted_endpoint_dt = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(predicted_endpoint))
-    return task_id, current_progress*100, remaining
+    try:
+        text = np.genfromtxt(file_name, dtype=str, delimiter="\t")
+        t = text[:,2].astype(float)
+        progress = text[:,1].astype(float)
+        current_progress = progress[-1]
+        duration = np.sum(t)
+        predicted_duration = duration / current_progress
+        remaining = predicted_duration - duration
+        predicted_endpoint = time.time() + remaining
+        predicted_endpoint_dt = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(predicted_endpoint))
+        return task_id, current_progress*100, remaining
+    except:
+        return task_id, 0, np.nan
 
 
 def _zip(task_dir):
@@ -296,12 +307,11 @@ def _progress(filename, size, sent):
 
 
 if __name__ == '__main__':
-    task_dir = r"C:\Users\simoba\Documents\_work\NTNUIT\2019-05-22-SubSeaPro\task2"
+    task_dir = r"C:\Users\simoba\Documents\_work\NTNUIT\2019-05-22-SubSeaPro\task1"
 
-
-#    send_task_to_server(task_dir)
+    send_task_to_server(task_dir)
 #    download_results(task_dir)
-    check_incomplete_jobs()
+#    check_incomplete_jobs()
 
 
 

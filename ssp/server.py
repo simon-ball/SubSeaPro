@@ -56,7 +56,7 @@ def task(task_id):
     #                          stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE) 
         run_file = task_dir / job_id / config.file_in
         print(run_file)
-        time.sleep(5)
+        time.sleep(2)
         a = random.random()
         success = False
         if a < 0.8:
@@ -140,13 +140,7 @@ def _check_if_task_finished(task_id, job_id):
     for name in hanging:
         if name == job_id or not os.path.isdir(name):
             hanging.remove(name)
-    if hanging:
-        finished = False
-        for jid in hanging:
-            # If any hanging jobs remain, re-add them to the queue
-            job.delay(task_id, jid, hung_job=True)
-    
-    elif num_finished + num_failed == num_jobs:
+    if num_finished + num_failed == num_jobs:
         finished = True
     else:
         finished = False
@@ -181,7 +175,7 @@ def _task_cleanup(task_id):
     shutil.rmtree(str(config.root_download / task_id))
     shutil.rmtree(str(config.root_job / task_id))
     progress_file = config.root_job / (task_id+config.progress)
-    os.remove(progress_file)
+    os.remove(str(progress_file))
     return True
     
 
@@ -198,8 +192,6 @@ def _write_task_progress(task_id, job_id, all_ids, duration):
     to_write = "%s \t %.2g \t %.2f\n" % (job_id, progress, duration)
     with open(record, "a+") as f:
         f.write(to_write)
+    pass
         
     
-if __name__ == '__main__':
-    now = datetime.now()
-    print(now.strftime("%Y-%m-%d :: %H:%M:%S"))
