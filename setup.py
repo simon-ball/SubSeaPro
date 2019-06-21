@@ -9,7 +9,7 @@ with open('HISTORY.rst') as history_file:
 
 here = path.abspath(path.dirname(__file__))
 
-setuptools.setup(
+setup(
     name="ssp",
     version="0.1.0",
     author="Simon Ball",
@@ -24,6 +24,6 @@ setuptools.setup(
         "Operating System :: OS Independent",
     ],
 	install_requires=requirements,
-    packages=setuptools.find_packages(),
-    
+	include_package_data=True,
+    packages=find_packages(),    
 )
