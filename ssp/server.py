@@ -17,11 +17,12 @@ from pathlib import Path
 from celery import Celery
 
 import server_config as config
+import server_secrets as secrets
 
-#app = Celery("server_main", broker="pyamqp://user:password@10.212.25.165//")
+#app = Celery("server_main", broker="pyamqp://user:password@ipaddress//")
 # Configure the queue that keeps track of jobs still to be completed
 fn = os.path.basename(sys.argv[0]).split('.')[0] # Name of this script
-queue = Celery(fn, broker="pyamqp://%s:%s@%s//" % (config.quser, config.qpwd, config.host))
+queue = Celery(fn, broker="pyamqp://%s:%s@%s//" % (secrets.quser, secrets.qpwd, secrets.host))
 
 @queue.task
 def job(task_id, job_id, hung_job = False):

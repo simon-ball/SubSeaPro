@@ -1,19 +1,6 @@
 import os
 from pathlib import PurePosixPath
 
-# Accessing server
-host = "10.212.25.165"
-user = "ubuntu"
-key = r"C:\Users\simoba\Documents\_work\NTNUIT\2019-05-22-SubSeaPro\server_setup\SubSeaPro.pem"
-
-
-# Accessing queue:
-quser = "<USERNAME>"
-qpwd = "<PASSWORD>"
-
-
-
-
 
 # Using server : it's a Unix system, and thus use a posix path.
 # These are parameterised because they are used repeaedly

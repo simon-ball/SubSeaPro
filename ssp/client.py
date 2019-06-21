@@ -25,6 +25,7 @@ import warnings
 warnings.filterwarnings("ignore", category=cryptography.utils.CryptographyDeprecationWarning)
 
 import server_config as config
+import server_secrets as secrets
 import server # The collection of objects that are crucial to the server
 # Particularly used for server.job and server.queue
 
@@ -69,7 +70,7 @@ def send_task_to_server(task_directory):
     print("%d jobs found in task '%s'" % (len(job_list), task_id))
     
     # Use that list to send jobs to the server
-    ssh = _open_ssh(host=config.host, user=config.user, key=config.key)
+    ssh = _open_ssh(host=secrets.host, user=secrets.user, key=secrets.key)
     stdin, stdout, stderr = ssh.exec_command('[ -d "%s" ] && echo "exists"' % _sanitise(config.root_job / task_id))
     task_already_exists = bool(stdout.readline())
     if task_already_exists:
@@ -104,7 +105,7 @@ def download_results(local_dir = Path.home()/"Documents"/"SubSeaPro"):
     '''Download completed tasks to the user's computer    
     All completed tasks are identified, downloaded, and then deleted from the 
     server. '''
-    ssh = _open_ssh(host=config.host, user=config.user, key=config.key)
+    ssh = _open_ssh(host=secrets.host, user=secrets.user, key=secrets.key)
     to_download = []
     stdin, stdout, stderr = ssh.exec_command('ls "%s"' % config.root_download)
     files = stdout.readlines()
