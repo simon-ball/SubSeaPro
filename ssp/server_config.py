@@ -8,6 +8,8 @@ finished = 'finished'
 jobs = 'jobs'
 failed = 'failed'
 download = 'download'
+progress = "_progress.txt"
+complete = "_completed.zip"
 
 root = PurePosixPath(".")
 root_job = root / jobs

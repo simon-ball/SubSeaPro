@@ -14,9 +14,11 @@ import time
 import shlex
 import zipfile
 import paramiko
+import pyrabbit
 import numpy as np
 import cryptography
 from tqdm import tqdm
+from celery import Celery
 from numpy import spacing
 from scp import SCPClient
 from pathlib import Path, PurePosixPath
@@ -91,33 +93,77 @@ def send_task_to_server(task_directory):
         #unzip_cmd = 'unzip -aa -o -d "%s" "%s"' % (_sanitise(remote_path), _sanitise(remote_path / cfname))
         #stdin, stdout, stderr = ssh.exec_command(unzip_cmd)
         scp.close()
-        for job_dir in job_list:
-            _add_job_to_queue(job_dir)
+#        for job_dir in job_list:
+#            _add_job_to_queue(job_dir)
+        _add_task_to_queue(task_id)
         ssh.close()
         stop = time.time()
         print("Transfer complete in %.1f seconds" % (stop - start))
     pass
 
 
-
+def check_incomplete_jobs(local_dir = Path.home()/"Documents"/"SubSeaPro"/"Progress"):
+    '''Check if any tasks are in progress
+    If one or more tasks are in progress, then print out information about 
+    current progress and expected completion time.
+    Return True if jobs in progress, return False otherwise
+    '''
+    os.makedirs(local_dir, exist_ok=True)
+    ssh = _open_ssh(host=secrets.host, user=secrets.user, key=secrets.key)
+    to_download = []
+    to_process = []
+    stdin, stdout, stderr = ssh.exec_command('ls "%s"' % config.root_job)
+    files = stdout.readlines()
+    for f in files:
+        n = f.strip('\n')
+        if config.progress in n:
+            to_download.append(n)
+    if to_download:
+        scp = _open_scp(ssh, progress=True)
+        for prog_file in to_download:
+            remote_file = _sanitise(config.root_job / prog_file)
+            local_file = local_dir / prog_file
+            scp.get(remote_file, local_dir)
+            to_process.append(local_file)
+        scp.close()
+        ssh.close()
+        time.sleep(0.5)
+        for prog_file in to_process:
+            t_id, curr_prog, expect = _read_progress_file(str(prog_file))
+            if t_id:
+                print("Task: %s at %.3g%%, expected complete in %s" % (t_id, curr_prog, _convert_sec(expect)))
+            else:
+                print("unknown")
+        for prog_file in to_process:
+            os.remove(str(prog_file))
+        return True
+    else:
+        print("No tasks in progress")
+        return False
+            
+            
+        
+    
+    
 
 def download_results(local_dir = Path.home()/"Documents"/"SubSeaPro"):
     '''Download completed tasks to the user's computer    
     All completed tasks are identified, downloaded, and then deleted from the 
     server. '''
+    os.makedirs(local_dir, exist_ok=True)
     ssh = _open_ssh(host=secrets.host, user=secrets.user, key=secrets.key)
     to_download = []
     stdin, stdout, stderr = ssh.exec_command('ls "%s"' % config.root_download)
     files = stdout.readlines()
     for f in files:
         n = f.strip('\n')
-        if "_complete.zip" in n:
+        if config.complete in n:
             to_download.append( n)
             task_id = n.split("_")[0]
             print("Found completed task: '%s'" % task_id)
     if to_download:
         scp = _open_scp(ssh, progress=True)
-        print("Downloading")
+        print("Downloading to %s" % local_dir)
         for task in tqdm(to_download):
             task_id = task.split("_")[0]
             remote_file = _sanitise(config.root_download / task)
@@ -131,6 +177,9 @@ def download_results(local_dir = Path.home()/"Documents"/"SubSeaPro"):
         print("No completed tasks to download")
     ssh.close()
     return True
+
+
+
 
 ###############################################################################
 ###################             HELPER FUNCTIONS
@@ -146,6 +195,25 @@ def _identity(job_dir):
     task_identity = os.path.split((os.path.split(job_dir)[-0]))[1]
     return task_identity, job_identity
 
+def _convert_sec(sec):
+    return"%dh %dmin" % (int(sec/3600), int((sec%3600)/60))
+
+        
+    
+def _read_progress_file(file_name):
+    '''Based on a progress file downloaded from the server, get the current
+    progress as a % and the expected completion time'''
+    task_id = os.path.split(file_name)[1][:-1*len(config.progress)]
+    text = np.genfromtxt(file_name, dtype=str, delimiter="\t")
+    t = text[:,2].astype(float)
+    progress = text[:,1].astype(float)
+    current_progress = progress[-1]
+    duration = np.sum(t)
+    predicted_duration = duration / current_progress
+    remaining = predicted_duration - duration
+    predicted_endpoint = time.time() + remaining
+    predicted_endpoint_dt = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(predicted_endpoint))
+    return task_id, current_progress*100, remaining
 
 
 def _zip(task_dir):
@@ -167,18 +235,13 @@ def _zip(task_dir):
     cfile.close()
     return local_cfile, remote_path, cfilename
     
+    
 
-def _open_sftp(ssh):
-    sftp = paramiko.SFTPClient.from_transport(ssh.get_transport())
-    return sftp
-    
-    
-def _add_job_to_queue(local_job_dir):
-    '''Based on a local job directory, add the job to the queue with sufficient
-    information to proces it and identify the results at the other end'''
-    t_id, j_id = _identity(local_job_dir)
-    server.job.delay(t_id, j_id)
+def _add_task_to_queue(task_id):
+    '''Add the task to the queue so that calculations will actually proceed'''
+    server.task.delay(task_id)
     pass
+
 
 
 def _open_ssh(host, user, key):
@@ -233,11 +296,13 @@ def _progress(filename, size, sent):
 
 
 if __name__ == '__main__':
-    task_dir = r"C:\Users\simoba\Documents\_work\NTNUIT\2019-05-22-SubSeaPro\task1"
-    
+    task_dir = r"C:\Users\simoba\Documents\_work\NTNUIT\2019-05-22-SubSeaPro\task2"
 
-    send_task_to_server(task_dir)
-    download_results(task_dir)
+
+#    send_task_to_server(task_dir)
+#    download_results(task_dir)
+    check_incomplete_jobs()
+
 
 
 

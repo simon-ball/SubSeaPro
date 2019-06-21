@@ -15,6 +15,7 @@ import zipfile
 import subprocess
 from pathlib import Path
 from celery import Celery
+from datetime import datetime
 
 import server_config as config
 import server_secrets as secrets
@@ -25,67 +26,61 @@ fn = os.path.basename(sys.argv[0]).split('.')[0] # Name of this script
 queue = Celery(fn, broker="pyamqp://%s:%s@%s//" % (secrets.quser, secrets.qpwd, secrets.host))
 
 @queue.task
-def job(task_id, job_id, hung_job = False):
+def task(task_id):
+    '''complete a Task:
+        * Extract all jobs that are part of the task
+        * Calculate each job in turn
+        * Tidy uo at the end
     '''
-    Optimise a specific set of parameters using CPLEX within AMPL
-    '''
-    # Preparation: extract working files, ensure that directories for output exist
-    start_time = time.time()
-    print("Starting '%s' : '%s'" % (task_id, job_id))
-    # Extract files from archive:
-    task_dir = config.root_job / task_id
-    archive = task_dir / (task_id+".zip")
-    if not hung_job:
-        # If the job is hung, the files have already been unzipped
-        with zipfile.ZipFile(archive, "r") as cfile:
-            for f in cfile.namelist():
-                if job_id in f:
-                    cfile.extract(f, task_dir)
-            
     os.makedirs(config.root_finished / task_id, exist_ok=True)
     os.makedirs(config.root_failed / task_id, exist_ok=True)
-    
-    # Identify the working directory of this specific job
-    run_file = task_dir / job_id / config.file_in
-    
-    
-    '''Do the actual calculations'''
-    # Call Ampl
-    # TODO: need to further investigate correctly escaping the identifier, since it's user-entered input
-    # possibly shlex.quote() ?
-#    done = subprocess.run([config.bash_command, run_file], shell=True, 
-#                          stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE) 
-    print(run_file)
-    end_time = time.time()
-    duration = end_time - start_time
-    a = random.random()
-    success = False
-    if a < 0.8:
-        success = True
-        
-    '''Based on the success or failure of the calculations, finish the job''' 
-    # Clean up activities
-    _move_ended_job(task_id, job_id, success)
-    task_finished = _check_if_task_finished(task_id, job_id)
-    if task_finished:
-        print("task '%s' finished" % task_id)
-        _task_cleanup(task_id)
-    print()
-    
-    
-#    if done.returncode == 0:
-#        success = True
-#    else:
-#        success = False
-#    if success:
-#        # Move the results to the output folder
-#        pass
-#    else:
-#        # Move the job to the failed folder
-#        pass
-    #https://docs.python.org/3/library/subprocess.html
-    # Use this for switching between success of failure?
-
+    task_dir = config.root_job / task_id
+    archive = task_dir / (task_id+".zip")
+    ids = []
+    print("Extracting all jobs in '%s'" % task_id)
+    with zipfile.ZipFile(archive, "r") as cfile:
+        for f in cfile.namelist():
+            job_id = f.split(os.sep)[0]
+            if job_id not in ids:
+                ids.append(job_id)
+                cfile.extract(f, task_dir)
+    print("Beginning calculations in '%s'" % task_id)
+    for job_id in ids:
+        job_start = time.time()
+        print("Beginning job '%s'" % job_id)
+        '''Actual job begins here'''
+            # Call Ampl
+        # TODO: need to further investigate correctly escaping the identifier, since it's user-entered input
+        # possibly shlex.quote() ?
+    #    done = subprocess.run([config.bash_command, run_file], shell=True, 
+    #                          stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE) 
+        run_file = task_dir / job_id / config.file_in
+        print(run_file)
+        time.sleep(5)
+        a = random.random()
+        success = False
+        if a < 0.8:
+            success = True
+        '''Actual job ends here'''
+        job_stop = time.time()
+        duration = job_stop - job_start
+        _write_task_progress(task_id, job_id, ids, duration)
+    #    if done.returncode == 0:
+    #        success = True
+    #    else:
+    #        success = False
+    #    if success:
+    #        # Move the results to the output folder
+    #        pass
+    #    else:
+    #        # Move the job to the failed folder
+    #        pass
+        #https://docs.python.org/3/library/subprocess.html
+        # Use this for switching between success of failure?
+        _move_ended_job(task_id, job_id, success)
+    print("task '%s' finished" % task_id)
+    _task_cleanup(task_id)
+    pass
 @queue.task
 def test(task_id, job_id):
     print("starting %s, %s" % (task_id, job_id))
@@ -176,7 +171,7 @@ def _task_cleanup(task_id):
     shutil.move(str(config.root_failed / task_id), new_fail_dir)
     
     # zip into archive
-    archive_name = config.root_download / (task_id + "_complete.zip")
+    archive_name = config.root_download / (task_id + config.complete)
     with zipfile.ZipFile(archive_name, "a") as archive:
         for location in (new_fin_dir, new_fail_dir):
             for root, dirs, files in os.walk(location):
@@ -185,6 +180,8 @@ def _task_cleanup(task_id):
     # Delete folders
     shutil.rmtree(str(config.root_download / task_id))
     shutil.rmtree(str(config.root_job / task_id))
+    progress_file = config.root_job / (task_id+config.progress)
+    os.remove(progress_file)
     return True
     
 
@@ -195,14 +192,14 @@ def _sanitise(text):
 
 
 
-if __name__ == '__main__':
-    ti = "task1"
-    job(ti, "job_1")
-    job(ti, "job_2")
-    job(ti, "job_3")
-    job(ti, "job_4")
-    job(ti, "job_5")
-    job(ti, "job_6")
-    job(ti, "job_7")
-    job(ti, "job_8")
+def _write_task_progress(task_id, job_id, all_ids, duration):
+    record = config.root_job / (task_id+config.progress)
+    progress = (1 + all_ids.index(job_id)) / len(all_ids)
+    to_write = "%s \t %.2g \t %.2f\n" % (job_id, progress, duration)
+    with open(record, "a+") as f:
+        f.write(to_write)
+        
     
+if __name__ == '__main__':
+    now = datetime.now()
+    print(now.strftime("%Y-%m-%d :: %H:%M:%S"))
