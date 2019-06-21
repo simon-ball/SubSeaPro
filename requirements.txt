@@ -1,5 +1,4 @@
 pathlib
-zipfile
 celery==4.3.0
 scp==0.13.2
 tqdm==4.31.1
