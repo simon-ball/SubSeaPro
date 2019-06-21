@@ -7,6 +7,9 @@ with open('README.md') as readme_file:
 
 here = path.abspath(path.dirname(__file__))
 
+with open(path.join(here, 'requirements.txt')) as f:
+requirements = f.read().split()
+
 setup(
     name="ssp",
     version="0.1.0",
