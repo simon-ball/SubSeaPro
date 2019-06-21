@@ -14,7 +14,6 @@ import time
 import shlex
 import zipfile
 import paramiko
-import pyrabbit
 import numpy as np
 import cryptography
 from tqdm import tqdm

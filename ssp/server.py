@@ -22,7 +22,7 @@ import ssp.server_secrets as secrets
 
 #app = Celery("server_main", broker="pyamqp://user:password@ipaddress//")
 # Configure the queue that keeps track of jobs still to be completed
-fn = os.path.basename(sys.argv[0]).split('.')[0] # Name of this script
+fn = 'server'#os.path.basename(sys.argv[0]).split('.')[0] # Name of this script
 queue = Celery(fn, broker="pyamqp://%s:%s@%s//" % (secrets.quser, secrets.qpwd, secrets.host))
 
 @queue.task
