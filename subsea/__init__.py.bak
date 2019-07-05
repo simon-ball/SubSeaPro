@@ -1,0 +1,10 @@
+from subsea.server import *
+from subsea import client
+from subsea import server_config
+from subsea import server_secrets
+
+__all__ = ['client', 'server_secrets', 'server_config']
+
+__version__ = '0.1.0'
+
+

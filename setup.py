@@ -11,7 +11,7 @@ with open(path.join(here, 'requirements.txt')) as f:
 	requirements = f.read().split()
 
 setup(
-    name="ssp",
+    name="subsea",
     version="0.1.0",
     author="Simon Ball",
     author_email="simon.ball@ntnu.no",
@@ -26,5 +26,5 @@ setup(
     ],
 	install_requires=requirements,
 	include_package_data=True,
-    packages=find_packages(),    
+    packages=find_packages(include=['subsea*']),    
 )

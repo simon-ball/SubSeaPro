@@ -11,14 +11,15 @@ import time
 import shlex
 import shutil
 import random
+import pathlib
 import zipfile
 import subprocess
 from pathlib import Path
 from celery import Celery
 from datetime import datetime
 
-import ssp.server_config as config
-import ssp.server_secrets as secrets
+import subsea.server_config as config
+import subsea.server_secrets as secrets
 
 #app = Celery("server_main", broker="pyamqp://user:password@ipaddress//")
 # Configure the queue that keeps track of jobs still to be completed
@@ -41,42 +42,33 @@ def task(task_id):
     with zipfile.ZipFile(archive, "r") as cfile:
         for f in cfile.namelist():
             job_id = f.split(os.sep)[0]
+            cfile.extract(f, task_dir)
             if job_id not in ids:
-                ids.append(job_id)
-                cfile.extract(f, task_dir)
+                ids.append(job_id)                
     print("Beginning calculations in '%s'" % task_id)
     for job_id in ids:
         job_start = time.time()
         print("Beginning job '%s'" % job_id)
+        
         '''Actual job begins here'''
             # Call Ampl
-        # TODO: need to further investigate correctly escaping the identifier, since it's user-entered input
-        # possibly shlex.quote() ?
-    #    done = subprocess.run([config.bash_command, run_file], shell=True, 
-    #                          stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE) 
-        run_file = task_dir / job_id / config.file_in
-        print(run_file)
-        time.sleep(2)
-        a = random.random()
-        success = False
-        if a < 0.8:
-            success = True
+        # TODO: should the command be passed through Shlex first? the user is able to modify it via config
+        
+        run_dir = task_dir / job_id 
+        old = os.getcwd()
+        os.chdir(run_dir)
+        done = subprocess.run(config.bash_command+config.file_in, shell=True)
+        success = done.returncode==0
+        if not success:
+            print(os.getcwd())
+            print(os.listdir())
+            time.sleep(5)
+        os.chdir(old)
         '''Actual job ends here'''
+        
         job_stop = time.time()
         duration = job_stop - job_start
         _write_task_progress(task_id, job_id, ids, duration)
-    #    if done.returncode == 0:
-    #        success = True
-    #    else:
-    #        success = False
-    #    if success:
-    #        # Move the results to the output folder
-    #        pass
-    #    else:
-    #        # Move the job to the failed folder
-    #        pass
-        #https://docs.python.org/3/library/subprocess.html
-        # Use this for switching between success of failure?
         _move_ended_job(task_id, job_id, success)
     print("task '%s' finished" % task_id)
     _task_cleanup(task_id)

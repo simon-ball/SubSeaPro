@@ -9,7 +9,6 @@ This is a temporary script file.
 # https://github.com/jbardin/scp.py
 
 import os
-import sys
 import time
 import shlex
 import zipfile
@@ -18,16 +17,15 @@ import numpy as np
 import cryptography
 from tqdm import tqdm
 from celery import Celery
-from numpy import spacing
 from scp import SCPClient
-from pathlib import Path, PurePosixPath
+from pathlib import Path
 
 import warnings
 warnings.filterwarnings("ignore", category=cryptography.utils.CryptographyDeprecationWarning)
 
-import ssp.server_config as config
-import ssp.server_secrets as secrets
-import ssp.server as server# The collection of objects that are crucial to the server
+import subsea.server_config as config
+import subsea.server_secrets as secrets
+import subsea.server as server# The collection of objects that are crucial to the server
 # Particularly used for server.job and server.queue
 
 
@@ -306,7 +304,7 @@ def _progress(filename, size, sent):
 
 
 if __name__ == '__main__':
-    task_dir = r"C:\Users\simoba\Documents\_work\NTNUIT\2019-05-22-SubSeaPro\task1"
+    task_dir = r"C:\Users\simoba\Documents\_work\NTNUIT\2019-05-22-SubSeaPro\task0"
 
     send_task_to_server(task_dir)
 #    download_results(task_dir)
