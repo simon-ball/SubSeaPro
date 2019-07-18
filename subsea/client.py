@@ -30,19 +30,6 @@ import subsea.server as server# The collection of objects that are crucial to th
 # Particularly used for server.job and server.queue
 
 
-# Distinguishes tasks and jobs
-
-# SCP speed - fixed with zip file
-            
-# TODO: refactor code for generating remote paths
-# TODO: Improve behaviour of output zip files. 
-# TODO: Transfer Ampl licence and ensure that it actually runs
-# TODO: Generate non-root users, private keys, and Rabbit credentials (can that use a rsa key too?)
-# TODO: Daemonise worker to be sure it comes up
-# TODO: SOme means of ensuring that the server code and client code are consistent
-
-
-
 def send_task_to_server(task_directory):
     '''Send the provided list of jobs to the server for processing
     
@@ -96,10 +83,6 @@ def send_task_to_server(task_directory):
         local_cfile, remote_path, cfname = _zip(task_directory)
         print("Transferring task")
         scp.put(str(local_cfile), _sanitise(remote_path))
-#        scp.get(_sanitise(remote_path / cfname), os.path.split(local_cfile)[0])
-        # Remote unzipping has been replaced by safer Python-handled unzipping on the server
-        #unzip_cmd = 'unzip -aa -o -d "%s" "%s"' % (_sanitise(remote_path), _sanitise(remote_path / cfname))
-        #stdin, stdout, stderr = ssh.exec_command(unzip_cmd)
         scp.close()
         _add_task_to_queue(task_id)
         ssh.close()
@@ -376,18 +359,6 @@ def _progress(filename, size, sent):
     pass
 
 
-
-
-
-if __name__ == '__main__':
-    task_dir = pathlib.Path(r"C:\Users\simoba\Documents\_work\NTNUIT\2019-05-22-SubSeaPro")
-
-#    send_task_to_server(task_dir / "task0")
-#    send_task_to_server(task_dir / "task1")
-#    send_task_to_server(task_dir / "task2")
-#    send_task_to_server(task_dir / "task3")
-    download_results(task_dir)
-#    check_status()
 
 
 
