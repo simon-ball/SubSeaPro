@@ -4,7 +4,7 @@ Created on Fri May 31 13:50:33 2019
 
 @author: simoba
 """
-# celery -A proj worker -l info
+# celery -A subsea.server worker --loglevel=INFO --concurrency=1 -n subsea_worker1
 import sys
 import os
 import time
@@ -51,9 +51,6 @@ def task(task_id):
         print("Beginning job '%s'" % job_id)
         
         '''Actual job begins here'''
-            # Call Ampl
-        # TODO: should the command be passed through Shlex first? the user is able to modify it via config
-        
         run_dir = task_dir / job_id 
         old = os.getcwd()
         os.chdir(run_dir)
@@ -93,11 +90,11 @@ def _move_ended_job(task_id, job_id, succeeded):
     '''
     old_dir = Path(config.root_job, task_id, job_id)
     if succeeded:
-        print("Moving successful job to /finished")
+        print(f"Moving successful {job_id} to /finished/{task_id}")
         new_dir = str(Path(config.root_finished, task_id))
         record = config.list_finished
     else:
-        print("Moving unsuccessful job to /failed")
+        print(f"Moving unsuccessful {job_id} to /failed/{task_id}")
         new_dir = str(Path(config.root_failed, task_id))
         record = config.list_failed
     os.makedirs(new_dir, exist_ok=True)
@@ -179,9 +176,10 @@ def _sanitise(text):
 
 
 def _write_task_progress(task_id, job_id, all_ids, duration):
+    '''Write a record of task progress to a text file'''
     record = config.root_job / (task_id+config.progress)
     progress = (1 + all_ids.index(job_id)) / len(all_ids)
-    to_write = "%s \t %.2g \t %.2f\n" % (job_id, progress, duration)
+    to_write = "%s \t %.4g \t %.4f\n" % (job_id, progress, duration)
     with open(record, "a+") as f:
         f.write(to_write)
     pass
