@@ -7,12 +7,22 @@ A CLI queuing system for running calculations in AMPL on a remote server
 SSP uses a server-client infrastructure-, and requires installation on both systems.
 
 ### Client
-Install using `pip install git+https://github.com/simon-ball/SubSeaPro`
-Provide correct server_secrets:
-* Rename `server_secrets.py.example` to `server_secrets.py`
-* Enter the correct host address
-* Enter the correct user name and path to private RSA key
-* Enter correct username and password for access to the job queue
+Option 1: PIP
+    Install using `pip install git+https://github.com/simon-ball/SubSeaPro`
+    Provide correct server_secrets:
+    * Rename `server_secrets.py.example` to `server_secrets.py`
+    * Enter the correct host address
+    * Enter the correct user name and path to private RSA key
+    * Enter correct username and password for access to the job queue
+Option 2: Manual
+    Download from Github
+    Modify server secrets as above
+
+If not installed via PIP, then it is much easier to find and modify the server_secrets file. However, Python will not know the location of the library, and any time you use the library, you will have to provide this location information first, for example:
+    import os
+    os.path.append(0, r"C:/example/location/here")
+    
+    
 
 
 ## Usage
@@ -31,9 +41,9 @@ SSP Provides the following methods:
 		Assume that you have the following structure:
 		C:\Documents\task1\job_a1b1c1
 		C:\Documents\task1\job_a2b1c1
-		C:\Documents\task1\job_a2b1c1
+		C:\Documents\task1\job_a3b1c1
 		....
-		THe user would invoke `ssp.client.send_task_to_server(r"C:\Documents\task1")
+		The user would invoke `ssp.client.send_task_to_server(r"C:\Documents\task1")
 		
 	`ssp.client.download_results(local_dir)`
 		Download _all_ completed tasks from the server to folder `local_dir` on your computer
@@ -41,4 +51,9 @@ SSP Provides the following methods:
 		Incomplete tasks are not downloaded
 		Tasks are deleted from the server after download.
 		
-	
+	`ssp.check_status()`
+        Query the server for:
+            Tasks in progress and expected completion time
+            Tasks in queue (not yet started)
+            Tasks complete and ready for download
+        This both prints data to the screen for the user, and returns the number of each. 
