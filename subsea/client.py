@@ -30,7 +30,7 @@ import subsea.server as server# The collection of objects that are crucial to th
 # Particularly used for server.job and server.queue
 
 
-def send_task_to_server(task_directory):
+def send_task_to_server(task_directory, recipient=None):
     '''Send the provided list of jobs to the server for processing
     
     params
@@ -42,6 +42,8 @@ def send_task_to_server(task_directory):
             C:\MyDcuments\Task1\a1b1c2\Field-Opt.run
             ....... etc
         then task_directory = C:\MyDcuments\Task1
+    recipient : str or list of str
+        Email addresses to be notified on completion of job
     returns
     -------
     none
@@ -67,6 +69,7 @@ def send_task_to_server(task_directory):
         ssh.close()
         raise ValueError("Task '%s' is finished and awaiting download. Either download this task first, or re-submit with a new name" % task_id)
     else:
+        print(f"=== Sending task '{task_id}' to server ===")
         job_list = []
         for element in os.listdir(task_directory):
             subdir = task_directory / element
@@ -84,10 +87,10 @@ def send_task_to_server(task_directory):
         print("Transferring task")
         scp.put(str(local_cfile), _sanitise(remote_path))
         scp.close()
-        _add_task_to_queue(task_id)
+        _add_task_to_queue(task_id, recipient)
         ssh.close()
         stop = time.time()
-        print("Transfer complete in %.1f seconds" % (stop - start))
+        print("Transfer complete in %.1f seconds \n" % (stop - start))
     pass
 
 
@@ -144,7 +147,7 @@ def check_status(local_dir = pathlib.Path.home()/"Documents"/"SubSeaPro"/"Progre
         for prog_file in to_process:
             t_id, curr_prog, expect = _read_progress_file(str(prog_file))
             if t_id:
-                print("Task: %s at %.3g%%, expected complete in %s" % (t_id, curr_prog, _convert_sec(expect)))
+                print("Task: '%s' at %.3g%%, expected complete in %s" % (t_id, curr_prog, _convert_sec(expect)))
             else:
                 print("unknown")
         for prog_file in to_process:
@@ -154,7 +157,7 @@ def check_status(local_dir = pathlib.Path.home()/"Documents"/"SubSeaPro"/"Progre
     print("=== Tasks in queue ===")
     if to_queue:
         for task_id in to_queue:
-            print(f"Task: {task_id} queued")
+            print(f"Task: '{task_id}' queued")
     else:
         print("None")
     #Check on tasks to be downloaded
@@ -166,7 +169,7 @@ def check_status(local_dir = pathlib.Path.home()/"Documents"/"SubSeaPro"/"Progre
             name = f.strip('\n')
             if config.complete in name:
                 task_id = name[:-1*len(config.complete)]
-                print(f"Task: {task_id} complete")
+                print(f"Task: '{task_id}' complete")
     else:
         print("No finished tasks")
     scp.close()
@@ -287,9 +290,7 @@ def _zip(task_dir):
         Local compressed file name, e.g. task0.zip
     
     '''
-    print(f"Task_dir: {task_dir}")
     t_id = task_dir.name
-    print(f"t_id: {t_id}")
     cfilename =  f"{t_id}.zip"
     local_cfile = task_dir.parent / cfilename
     remote_path = config.root_job / t_id 
@@ -304,9 +305,9 @@ def _zip(task_dir):
     
     
 
-def _add_task_to_queue(task_id):
+def _add_task_to_queue(task_id, recipient):
     '''Add the task to the queue so that calculations will actually proceed'''
-    server.task.delay(task_id)
+    server.task.delay(task_id, recipient)
     pass
 
 
@@ -360,7 +361,16 @@ def _progress(filename, size, sent):
 
 
 
-
+if __name__ == "__main__":
+    task_dir = pathlib.Path(r"C:\Users\simoba\Documents\_work\NTNUIT\2019-05-22-SubSeaPro")
+    target = "s.w.ball@st-aidans.com"
+#    check_status()
+    send_task_to_server(task_dir / "task0", target)
+#    send_task_to_server(task_dir / "task1")
+#    task_id="test"
+#    to_notify=target
+#    completion_time=time.localtime()
+#    server.notification_email.delay(task_id, to_notify, completion_time)
 
 
 

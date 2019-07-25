@@ -4,34 +4,38 @@ Created on Fri May 31 13:50:33 2019
 
 @author: simoba
 """
-# celery -A subsea.server worker --loglevel=INFO --concurrency=1 -n subsea_worker1
-import sys
+# celery -A subsea.server worker --loglevel=INFO --concurrency=1 -n subsea_worker1 -Q calculation
+# celery -A subsea.server worker --loglevel=INFO --concurrency=1 -n subsea_worker2 -Q notification
 import os
+import ssl
 import time
 import shlex
 import shutil
-import random
-import pathlib
+import smtplib
 import zipfile
 import subprocess
 from pathlib import Path
 from celery import Celery
-from datetime import datetime
 
 import subsea.server_config as config
 import subsea.server_secrets as secrets
 
-#app = Celery("server_main", broker="pyamqp://user:password@ipaddress//")
 # Configure the queue that keeps track of jobs still to be completed
 fn = 'server'#os.path.basename(sys.argv[0]).split('.')[0] # Name of this script
 queue = Celery(fn, broker="pyamqp://%s:%s@%s//" % (secrets.quser, secrets.qpwd, secrets.host))
 
-@queue.task
-def task(task_id):
+@queue.task(queue="calculation")
+def task(task_id, to_notify=None):
     '''complete a Task:
         * Extract all jobs that are part of the task
         * Calculate each job in turn
         * Tidy uo at the end
+    Parameters
+    ----------
+    task_id : str
+        Identity of the task to be completed, this is the name of the task folder inside the home directory folder jobs
+    to_notifiy : str or list of str
+        Email address(es) to be notified after completion
     '''
     os.makedirs(config.root_finished / task_id, exist_ok=True)
     os.makedirs(config.root_failed / task_id, exist_ok=True)
@@ -68,8 +72,42 @@ def task(task_id):
         _write_task_progress(task_id, job_id, ids, duration)
         _move_ended_job(task_id, job_id, success)
     print("task '%s' finished" % task_id)
+    # AFter task is finished, perform cleanup:
     _task_cleanup(task_id)
+    # After cleanup is finished, email the user to notify them that their task is complete
+    if to_notify is not None:
+        print(f"Notifying {to_notify}")
+        completion_time = time.localtime()
+        notification_email.delay(task_id, to_notify, completion_time)
     pass
+
+@queue.task(queue="notification")
+def notification_email(task_id, targets, completion_time):
+    '''Email a notification to an intended target that a task has been completed
+    
+    Parameters
+    ----------
+    task_id : str
+        Name that identifies the task
+    targets : str or list of str
+        Email address(es) for all intended recipients
+    completion_time : float
+        Epoch time of completion. It is assumed that the user is in the same 
+        time zone as the server, and therefore no timezone conversion will take 
+        place
+    '''
+    strftime = time.strftime("%Y-%m-%d  %H:%M")
+    message = (f"Subject: Task completion\n\n"\
+               f"Subsea AMPL calculator: \n\n"\
+               f"TASK COMPLETION \n\n"\
+               f"Task '{task_id}' completed at {strftime}")
+    context = ssl.create_default_context()
+    with smtplib.SMTP_SSL(secrets.email_server, timeout=2, context=context) as server:
+        server.login(secrets.email_src, secrets.email_pwd)
+        print("Connected")
+        server.sendmail(secrets.email_src, targets, message)
+        print(f"Email sent to {targets}")
+
 @queue.task
 def test(task_id, job_id):
     print("starting %s, %s" % (task_id, job_id))
