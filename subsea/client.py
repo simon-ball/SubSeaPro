@@ -361,6 +361,16 @@ def _progress(filename, size, sent):
 
 
 
+if __name__ == "__main__":
+    task_dir = pathlib.Path(r"C:\Users\simoba\Documents\_work\NTNUIT\2019-05-22-SubSeaPro")
+    target = "simon.ball@ntnu.no"
+    check_status()
+#    send_task_to_server(task_dir / "task0", target)
+#    send_task_to_server(task_dir / "task1", target)
+#    task_id="test"
+#    to_notify=target
+#    completion_time=time.localtime()
+#    server.notification_email.delay(task_id, to_notify, completion_time)
 
 
 

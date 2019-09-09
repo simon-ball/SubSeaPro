@@ -77,12 +77,11 @@ def task(task_id, to_notify=None):
     # After cleanup is finished, email the user to notify them that their task is complete
     if to_notify is not None:
         print(f"Notifying {to_notify}")
-        completion_time = time.localtime()
-        notification_email.delay(task_id, to_notify, completion_time)
+        notification_email.delay(task_id, to_notify)
     pass
 
 @queue.task(queue="notification")
-def notification_email(task_id, targets, completion_time):
+def notification_email(task_id, targets):
     '''Email a notification to an intended target that a task has been completed
     
     Parameters
@@ -91,10 +90,7 @@ def notification_email(task_id, targets, completion_time):
         Name that identifies the task
     targets : str or list of str
         Email address(es) for all intended recipients
-    completion_time : float
-        Epoch time of completion. It is assumed that the user is in the same 
-        time zone as the server, and therefore no timezone conversion will take 
-        place
+
     '''
     strftime = time.strftime("%Y-%m-%d  %H:%M")
     message = (f"Subject: Task completion\n\n"\
