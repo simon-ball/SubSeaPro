@@ -30,7 +30,7 @@ import subsea.server as server# The collection of objects that are crucial to th
 # Particularly used for server.job and server.queue
 
 
-def send_task_to_server(task_directory, recipient=None):
+def send_task_to_server(task_directory, recipient=None, remote_name=None):
     '''Send the provided list of jobs to the server for processing
     
     params
@@ -52,7 +52,10 @@ def send_task_to_server(task_directory, recipient=None):
         task_directory = pathlib.Path(task_directory)
     start = time.time()
     # Build a list of all the jobs in this task
-    task_id = task_directory.name
+    if remote_name is None:
+        task_id = task_directory.name
+    else:
+        task_id = remote_name
     if not task_id:
         raise ValueError("Your task directory is not a valid value. Please ensure that it points to a known directory and has no trailing slashes")
     
@@ -83,7 +86,7 @@ def send_task_to_server(task_directory, recipient=None):
         ssh.exec_command("mkdir -p %s" % _sanitise(config.root_failed))
         ssh.exec_command("mkdir -p %s" % _sanitise(config.root_download))
         print("Compressing task")
-        local_cfile, remote_path, cfname = _zip(task_directory)
+        local_cfile, remote_path, cfname = _zip(task_directory, remote_name)
         print("Transferring task")
         scp.put(str(local_cfile), _sanitise(remote_path))
         scp.close()
@@ -181,7 +184,7 @@ def check_status(local_dir = pathlib.Path.home()/"Documents"/"SubSeaPro"/"Progre
     
     
 
-def download_results(local_dir = pathlib.Path.home()/"Documents"/"SubSeaPro"):
+def download_results(local_dir = pathlib.Path.home()/"Documents"/"SubSeaPro", pattern=None):
     '''Download completed tasks to the user's computer    
     All completed tasks are identified, downloaded, and then deleted from the 
     server. 
@@ -207,9 +210,12 @@ def download_results(local_dir = pathlib.Path.home()/"Documents"/"SubSeaPro"):
     for f in files:
         name = f.strip('\n')
         if config.complete in name:
-            to_download.append(name)
-            task_id = name[:-1*len(config.complete)]
-            print("Found completed task: '%s'" % task_id)
+            if (pattern is None) or (pattern in name):
+                to_download.append(name)
+                task_id = name[:-1*len(config.complete)]
+                print("Found completed task: '%s'" % task_id)
+            elif pattern is not None:
+                print("No completed tasks matching pattern '%s'" % pattern)
     if to_download:
         local_files = os.listdir(local_dir)
         for task in to_download:
@@ -249,7 +255,11 @@ def _identity(job_dir):
     return task_identity, job_identity
 
 def _convert_sec(sec):
-    return"%dh %dmin" % (int(sec/3600), int((sec%3600)/60))
+    try:
+        string = "%dh %dmin" % (int(sec/3600), int((sec%3600)/60))
+        return string
+    except:
+        return "unknown"
 
         
     
@@ -272,7 +282,7 @@ def _read_progress_file(file_name):
         return task_id, 0, np.nan
 
 
-def _zip(task_dir):
+def _zip(task_dir, remote_name=None):
     '''Compress all jobs in the task to a single zip file. SCP is extremely
     inefficient at transferring many small files, so zip together for acceptable
     transfer speed. 
@@ -280,6 +290,8 @@ def _zip(task_dir):
     ----------
     task_dir : pathlib.Path
         location of the task, e.g. C:\Documents\task0
+    remote_name : str
+        optional - rename the task on the server
     Returns
     -------
     local_cfile : pathlib.Path
@@ -288,9 +300,11 @@ def _zip(task_dir):
         Remote file location, e.g. /jobs/task0
     cfilename : pathlib.Path
         Local compressed file name, e.g. task0.zip
-    
     '''
-    t_id = task_dir.name
+    if remote_name is not None:
+        t_id = remote_name
+    else:
+        t_id = task_dir.name
     cfilename =  f"{t_id}.zip"
     local_cfile = task_dir.parent / cfilename
     remote_path = config.root_job / t_id 
@@ -359,18 +373,6 @@ def _progress(filename, size, sent):
     time.sleep(0.001)
     pass
 
-
-
-if __name__ == "__main__":
-    task_dir = pathlib.Path(r"C:\Users\simoba\Documents\_work\NTNUIT\2019-05-22-SubSeaPro")
-    target = "simon.ball@ntnu.no"
-    check_status()
-#    send_task_to_server(task_dir / "task0", target)
-#    send_task_to_server(task_dir / "task1", target)
-#    task_id="test"
-#    to_notify=target
-#    completion_time=time.localtime()
-#    server.notification_email.delay(task_id, to_notify, completion_time)
 
 
 
