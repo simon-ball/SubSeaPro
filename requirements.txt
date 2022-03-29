@@ -2,5 +2,5 @@ pathlib
 celery==4.3.0
 scp==0.13.2
 tqdm==4.31.1
-paramiko==2.4.2
+paramiko==2.10.1
 cryptography==2.3.1
