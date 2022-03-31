@@ -24,7 +24,7 @@ list_failed = os.path.join(root_failed, r"failed.txt")
 
 file_in = "Field-Opt.run"
 file_out = "output.out"
-bash_command = "ampl "
+bash_command = "ampl " # note trailing space
 
 
 
